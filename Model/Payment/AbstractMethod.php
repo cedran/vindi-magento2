@@ -447,6 +447,7 @@ abstract class AbstractMethod extends OriginAbstractMethod
 
                 if ($subscription) {
                     $this->saveSubscriptionToDatabase($subscription, $order, $billId);
+                    $this->saveSubscriptionItemToDatabase($productItems, $subscription['id']);
                 }
 
                 if ($bill) {
@@ -523,6 +524,46 @@ abstract class AbstractMethod extends OriginAbstractMethod
             $this->connection->insert($tableName, $data);
         } catch (\Exception $e) {
             $this->psrLogger->error('Error saving subscription to database: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Save subscription items to the database
+     *
+     * @param array $productItems
+     * @param int $subscriptionId
+     */
+    protected function saveSubscriptionItemToDatabase(array $productItems, int $subscriptionId)
+    {
+        $tableName = $this->resourceConnection->getTableName('vindi_subscription_item');
+        foreach ($productItems as $item) {
+            $createdAt = new \DateTime($item['created_at']);
+            $updatedAt = new \DateTime($item['updated_at']);
+
+            $data = [
+                'subscription_id'          => $subscriptionId,
+                'product_item_id'          => $item['id'],
+                'product_name'             => $item['product']['name'],
+                'product_code'             => $item['product']['code'],
+                'quantity'                 => $item['quantity'],
+                'price'                    => $item['pricing_schema']['price'],
+                'pricing_schema_id'        => $item['pricing_schema']['id'],
+                'pricing_schema_type'      => $item['pricing_schema']['schema_type'],
+                'pricing_schema_short_format' => $item['pricing_schema']['short_format'],
+                'status'                   => $item['status'],
+                'uses'                     => $item['uses'] ?? null,
+                'cycles'                   => $item['cycles'] ?? null,
+                'discount_type'            => $item['discounts'][0]['discount_type'] ?? null,
+                'discount_percentage'      => $item['discounts'][0]['percentage'] ?? null,
+                'created_at'               => $createdAt->format('Y-m-d H:i:s'),
+                'updated_at'               => $updatedAt->format('Y-m-d H:i:s')
+            ];
+
+            try {
+                $this->connection->insert($tableName, $data);
+            } catch (\Exception $e) {
+                $this->psrLogger->error('Error saving subscription item to database: ' . $e->getMessage());
+            }
         }
     }
 

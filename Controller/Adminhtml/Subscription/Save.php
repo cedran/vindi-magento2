@@ -23,6 +23,7 @@ class Save extends Action
      * @var DataPersistorInterface
      */
     protected $dataPersistor;
+
     /**
      * @var Api
      */
@@ -52,28 +53,44 @@ class Save extends Action
     {
         /** @var Redirect $resultRedirect */
         $resultRedirect = $this->resultRedirectFactory->create();
+
         $data = $this->getRequest()->getPostValue();
+
         if ($data) {
             $id = $this->getRequest()->getParam('id');
+            if (!$id) {
+                $this->messageManager->addErrorMessage(__('Invalid Subscription ID.'));
+                return $resultRedirect->setPath('*/*/');
+            }
 
-            $request = $this->api->request('subscriptions/'.$id, 'PUT', [
-               'payment_profile' => [
-                   'id' => $data['payment_profile']
-               ]
-            ]);
+            if (!isset($data['payment_settings']['payment_profile']) || empty($data['payment_settings']['payment_profile'])) {
+                $this->messageManager->addErrorMessage(__('Invalid payment profile data.'));
+                return $resultRedirect->setPath('*/*/');
+            }
+
+            try {
+                $request = $this->api->request('subscriptions/' . $id, 'PUT', [
+                    'payment_profile' => [
+                        'id' => $data["payment_settings"]["payment_profile"]
+                    ]
+                ]);
+            } catch (Exception $e) {
+                $this->messageManager->addExceptionMessage($e, __('API request failed: %1', $e->getMessage()));
+                return $resultRedirect->setPath('*/*/edit', ['id' => $id]);
+            }
 
             if (!is_array($request)) {
-                $this->messageManager->addErrorMessage(__('This Subscription no longer exists.'));
+                $this->messageManager->addErrorMessage(__('This Subscription no longer exists or API request failed.'));
                 return $resultRedirect->setPath('*/*/');
             }
 
             $model = $this->_objectManager->create(Subscription::class)->load($id);
-            if (!$model->getId() && $id) {
-                $this->messageManager->addErrorMessage(__('Something went wrong while saving the Subscription.'));
+            if (!$model->getId()) {
+                $this->messageManager->addErrorMessage(__('Subscription with ID %1 does not exist.', $id));
                 return $resultRedirect->setPath('*/*/');
             }
 
-            $model->setData($data);
+            $model->setData('payment_profile', $data["payment_settings"]["payment_profile"]);
 
             try {
                 $model->save();
@@ -83,6 +100,7 @@ class Save extends Action
                 if ($this->getRequest()->getParam('back')) {
                     return $resultRedirect->setPath('*/*/edit', ['id' => $model->getId()]);
                 }
+
                 return $resultRedirect->setPath('*/*/');
             } catch (LocalizedException $e) {
                 $this->messageManager->addErrorMessage($e->getMessage());
@@ -93,6 +111,7 @@ class Save extends Action
             $this->dataPersistor->set('vindi_payment_subscription', $data);
             return $resultRedirect->setPath('*/*/edit', ['id' => $this->getRequest()->getParam('id')]);
         }
+
         return $resultRedirect->setPath('*/*/');
     }
 }

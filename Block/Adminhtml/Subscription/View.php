@@ -11,6 +11,8 @@ use Magento\Framework\Pricing\PriceCurrencyInterface;
 use Vindi\Payment\Helper\Api;
 use Vindi\Payment\Model\ResourceModel\SubscriptionOrder\CollectionFactory as SubscriptionOrderCollectionFactory;
 use Vindi\Payment\Model\SubscriptionFactory;
+use Vindi\Payment\Model\ResourceModel\VindiSubscriptionItem\CollectionFactory as VindiSubscriptionItemCollectionFactory;
+use Vindi\Payment\Model\VindiSubscriptionItemFactory;
 
 /**
  * Class View
@@ -51,6 +53,16 @@ class View extends Container
     private $subscriptionFactory;
 
     /**
+     * @var VindiSubscriptionItemCollectionFactory
+     */
+    private $vindiSubscriptionItemCollectionFactory;
+
+    /**
+     * @var VindiSubscriptionItemFactory
+     */
+    private $vindiSubscriptionItemFactory;
+
+    /**
      * View constructor.
      * @param Context $context
      * @param Registry $registry
@@ -58,6 +70,8 @@ class View extends Container
      * @param Api $api
      * @param PriceCurrencyInterface $priceHelper
      * @param SubscriptionFactory $subscriptionFactory
+     * @param VindiSubscriptionItemCollectionFactory $vindiSubscriptionItemCollectionFactory
+     * @param VindiSubscriptionItemFactory $vindiSubscriptionItemFactory
      * @param array $data
      */
     public function __construct(
@@ -67,6 +81,8 @@ class View extends Container
         Api $api,
         PriceCurrencyInterface $priceHelper,
         SubscriptionFactory $subscriptionFactory,
+        VindiSubscriptionItemCollectionFactory $vindiSubscriptionItemCollectionFactory,
+        VindiSubscriptionItemFactory $vindiSubscriptionItemFactory,
         array $data = []
     ) {
         parent::__construct($context, $data);
@@ -75,6 +91,8 @@ class View extends Container
         $this->subscriptionsOrderCollectionFactory = $subscriptionsOrderCollectionFactory;
         $this->priceHelper = $priceHelper;
         $this->subscriptionFactory = $subscriptionFactory;
+        $this->vindiSubscriptionItemCollectionFactory = $vindiSubscriptionItemCollectionFactory;
+        $this->vindiSubscriptionItemFactory = $vindiSubscriptionItemFactory;
     }
 
     /**
@@ -414,6 +432,57 @@ class View extends Container
     }
 
     /**
+     * Fetch subscription data directly from the API.
+     *
+     * @param int $subscriptionId
+     * @return array|null
+     */
+    public function fetchSubscriptionDataFromApi($subscriptionId)
+    {
+        $request = $this->api->request('subscriptions/' . $subscriptionId, 'GET');
+        if (is_array($request) && array_key_exists('subscription', $request)) {
+            return $request['subscription'];
+        }
+
+        return null;
+    }
+
+    /**
+     * Checks if subscription items are stored in the database, if not, retrieves them from the API and saves them.
+     *
+     * @return void
+     */
+    public function checkAndSaveSubscriptionItems()
+    {
+        $subscriptionId = $this->getSubscriptionId();
+        if (!$subscriptionId) {
+            return;
+        }
+
+        $itemsCollection = $this->vindiSubscriptionItemCollectionFactory->create();
+        $itemsCollection->addFieldToFilter('subscription_id', $subscriptionId);
+
+        if ($itemsCollection->getSize() == 0) {
+            $subscriptionData = $this->fetchSubscriptionDataFromApi($subscriptionId);
+            if (isset($subscriptionData['product_items'])) {
+                foreach ($subscriptionData['product_items'] as $item) {
+                    $subscriptionItem = $this->vindiSubscriptionItemFactory->create();
+                    $subscriptionItem->setSubscriptionId($subscriptionId);
+                    $subscriptionItem->setProductItemId($item['id']);
+                    $subscriptionItem->setProductName($item['product']['name']);
+                    $subscriptionItem->setProductCode($item['product']['code']);
+                    $subscriptionItem->setQuantity($item['quantity']);
+                    $subscriptionItem->setPrice($item['pricing_schema']['price']);
+                    $subscriptionItem->setPricingSchemaId($item['pricing_schema']['id']);
+                    $subscriptionItem->setPricingSchemaType($item['pricing_schema']['schema_type']);
+                    $subscriptionItem->setPricingSchemaFormat($item['pricing_schema']['schema_format'] ?? 'N/A'); // Check for schema_format key
+                    $subscriptionItem->save();
+                }
+            }
+        }
+    }
+
+    /**
      * @return array|null
      */
     private function getSubscriptionData()
@@ -428,10 +497,9 @@ class View extends Container
             if ($responseData) {
                 $this->subscriptions = json_decode($responseData, true);
             } else {
-                $request = $this->api->request('subscriptions/'.$id, 'GET');
-                if (is_array($request) && array_key_exists('subscription', $request)) {
-                    $this->subscriptions = $request['subscription'];
+                $this->subscriptions = $this->fetchSubscriptionDataFromApi($id);
 
+                if ($this->subscriptions) {
                     $subscriptionModel->setData('response_data', json_encode($this->subscriptions));
                     $subscriptionModel->save();
                 }
@@ -441,3 +509,4 @@ class View extends Container
         return $this->subscriptions;
     }
 }
+
