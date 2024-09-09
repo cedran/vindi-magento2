@@ -42,7 +42,7 @@ class SubscriptionItemGrid extends \Magento\Backend\Block\Widget\Grid\Extended
     /**
      * Prepare collection
      *
-     * @return $this
+     * @return void
      */
     protected function _construct()
     {
