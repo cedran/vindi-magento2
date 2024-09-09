@@ -16,22 +16,26 @@ use Vindi\Payment\Model\VindiSubscriptionItemFactory;
 
 /**
  * Class View
+ *
  * @package Vindi\Payment\Block\Adminhtml\Subscription
  */
 class View extends Container
 {
     /**
-     * @var array
+     * @var array|null
      */
     private $subscriptions = null;
+
     /**
-     * @var array
+     * @var array|null
      */
     private $periods = null;
+
     /**
      * @var Api
      */
     private $api;
+
     /**
      * @var Registry
      */
@@ -64,6 +68,7 @@ class View extends Container
 
     /**
      * View constructor.
+     *
      * @param Context $context
      * @param Registry $registry
      * @param SubscriptionOrderCollectionFactory $subscriptionsOrderCollectionFactory
@@ -144,11 +149,7 @@ class View extends Container
     public function getCustomerName()
     {
         $data = $this->getSubscriptionData();
-        if (array_key_exists('customer', $data)) {
-            return $data['customer']['name'];
-        }
-
-        return '';
+        return $data['customer']['name'] ?? '';
     }
 
     /**
@@ -157,11 +158,7 @@ class View extends Container
     public function getStatus()
     {
         $data = $this->getSubscriptionData();
-        if (array_key_exists('status', $data)) {
-            return $data['status'];
-        }
-
-        return '-';
+        return $data['status'] ?? '-';
     }
 
     /**
@@ -170,7 +167,7 @@ class View extends Container
     public function getStartAt()
     {
         $data = $this->getSubscriptionData();
-        if (!array_key_exists('start_at', $data)) {
+        if (!isset($data['start_at'])) {
             return '-';
         }
 
@@ -178,9 +175,8 @@ class View extends Container
             $startAt = new DateTime($data['start_at']);
             return $startAt->format('d/m/Y');
         } catch (Exception $e) {
+            return '-';
         }
-
-        return '-';
     }
 
     /**
@@ -189,11 +185,7 @@ class View extends Container
     public function getPlanName()
     {
         $data = $this->getSubscriptionData();
-        if (array_key_exists('plan', $data)) {
-            return $data['plan']['name'];
-        }
-
-        return '-';
+        return $data['plan']['name'] ?? '-';
     }
 
     /**
@@ -202,9 +194,7 @@ class View extends Container
     public function getPlanCycle()
     {
         $data = $this->getSubscriptionData();
-        if (array_key_exists('interval', $data) && array_key_exists('interval_count', $data)) {
-            $interval = $data['interval'];
-            $intervalCount = $data['interval_count'];
+        if (isset($data['interval'], $data['interval_count'])) {
             $intervalLabels = [
                 'days' => __('day(s)'),
                 'weeks' => __('week(s)'),
@@ -212,9 +202,12 @@ class View extends Container
                 'years' => __('year(s)')
             ];
 
-            if (array_key_exists($interval, $intervalLabels)) {
-                return __('Every %1 %2', $intervalCount, $intervalLabels[$interval]);
-            }
+            $interval = $data['interval'];
+            $intervalCount = $data['interval_count'];
+
+            return isset($intervalLabels[$interval])
+                ? __('Every %1 %2', $intervalCount, $intervalLabels[$interval])
+                : '-';
         }
 
         return '-';
@@ -226,14 +219,11 @@ class View extends Container
     public function getPlanDuration()
     {
         $data = $this->getSubscriptionData();
-        if (array_key_exists('billing_cycles', $data)) {
-            $billingCycle = $data["billing_cycles"];
-
-            if ($billingCycle == null || empty($billingCycle) || $billingCycle < 0) {
-                return __('Permanent');
-            }
-
-            return __('%1 cycles', $billingCycle);
+        if (isset($data['billing_cycles'])) {
+            $billingCycle = $data['billing_cycles'];
+            return ($billingCycle === null || $billingCycle < 0)
+                ? __('Permanent')
+                : __('%1 cycles', $billingCycle);
         }
 
         return __('Permanent');
@@ -245,11 +235,7 @@ class View extends Container
     public function getNextBillingAt()
     {
         $data = $this->getSubscriptionData();
-        if (!array_key_exists('next_billing_at', $data)) {
-            return '-';
-        }
-
-        return $this->dateFormat($data['next_billing_at']);
+        return isset($data['next_billing_at']) ? $this->dateFormat($data['next_billing_at']) : '-';
     }
 
     /**
@@ -258,40 +244,29 @@ class View extends Container
     public function getBillingTrigger()
     {
         $data = $this->getSubscriptionData();
-        if (!array_key_exists('billing_trigger_type', $data)
-            || !array_key_exists('billing_trigger_day', $data)
-        ) {
+        if (!isset($data['billing_trigger_type'], $data['billing_trigger_day'])) {
             return '-';
         }
 
         $billingTriggerDay  = $data['billing_trigger_day'];
         $billingTriggerType = $data['billing_trigger_type'];
 
-        if ($billingTriggerType == 'day_of_month') {
+        if ($billingTriggerType === 'day_of_month') {
             return __('Day %1 of the month', $billingTriggerDay);
         }
 
         if ($billingTriggerDay == 0) {
-            if ($billingTriggerType == 'beginning_of_period') {
-                return __('Exactly on the day of the start of the period');
-            }
-
-            return __('Exactly on the day of the end of the period');
+            return $billingTriggerType === 'beginning_of_period'
+                ? __('Exactly on the day of the start of the period')
+                : __('Exactly on the day of the end of the period');
         }
 
-        $billingTriggerDayLabel = __('before');
+        $billingTriggerDayLabel = ($billingTriggerDay > 0) ? __('after') : __('before');
+        $billingTriggerTypeLabel = $billingTriggerType === 'beginning_of_period'
+            ? __('start of the period')
+            : __('end of the period');
 
-        if ($billingTriggerDay > 0) {
-            $billingTriggerDayLabel = __('after');
-        }
-
-        $billingTriggerTypeLabel = __('end of the period');
-
-        if ($billingTriggerType == 'beginning_of_period') {
-            $billingTriggerTypeLabel = __('start of the period');
-        }
-
-        return __('%1 days', $billingTriggerDay) . ' ' . $billingTriggerDayLabel . ' ' . $billingTriggerTypeLabel;
+        return __('%1 days', abs($billingTriggerDay)) . ' ' . $billingTriggerDayLabel . ' ' . $billingTriggerTypeLabel;
     }
 
     /**
@@ -300,11 +275,7 @@ class View extends Container
     public function getProducts()
     {
         $data = $this->getSubscriptionData();
-        if (!array_key_exists('product_items', $data)) {
-            return [];
-        }
-
-        return $data['product_items'];
+        return $data['product_items'] ?? [];
     }
 
     /**
@@ -313,11 +284,7 @@ class View extends Container
     public function getPaymentMethod()
     {
         $data = $this->getSubscriptionData();
-        if (array_key_exists('payment_method', $data)) {
-            return $data['payment_method']['name'];
-        }
-
-        return '-';
+        return $data['payment_method']['name'] ?? '-';
     }
 
     /**
@@ -326,11 +293,7 @@ class View extends Container
      */
     public function getCycleLabel($cycle)
     {
-        if (is_null($cycle)) {
-            return __('Permanent');
-        }
-
-        return $cycle;
+        return is_null($cycle) ? __('Permanent') : $cycle;
     }
 
     /**
@@ -344,7 +307,7 @@ class View extends Container
 
         if ($this->periods === null) {
             $request = $this->api->request('periods?query=subscription_id%3D' . $id, 'GET');
-            if (is_array($request) && array_key_exists('periods', $request)) {
+            if (is_array($request) && isset($request['periods'])) {
                 $this->periods = $request['periods'];
             }
         }
@@ -388,9 +351,8 @@ class View extends Container
             $startAt = new DateTime($date);
             return $startAt->format('d/m/Y');
         } catch (Exception $e) {
+            return '-';
         }
-
-        return '-';
     }
 
     /**
@@ -399,11 +361,7 @@ class View extends Container
     public function getSubscriptionId()
     {
         $data = $this->getSubscriptionData();
-        if (array_key_exists('id', $data)) {
-            return $data['id'];
-        }
-
-        return 0;
+        return $data['id'] ?? 0;
     }
 
     /**
@@ -440,7 +398,7 @@ class View extends Container
     public function fetchSubscriptionDataFromApi($subscriptionId)
     {
         $request = $this->api->request('subscriptions/' . $subscriptionId, 'GET');
-        if (is_array($request) && array_key_exists('subscription', $request)) {
+        if (is_array($request) && isset($request['subscription'])) {
             return $request['subscription'];
         }
 
@@ -448,9 +406,7 @@ class View extends Container
     }
 
     /**
-     * Checks if subscription items are stored in the database, if not, retrieves them from the API and saves them.
-     *
-     * @return void
+     * Check if subscription items are saved in the database and save them if not.
      */
     public function checkAndSaveSubscriptionItems()
     {
@@ -475,7 +431,7 @@ class View extends Container
                     $subscriptionItem->setPrice($item['pricing_schema']['price']);
                     $subscriptionItem->setPricingSchemaId($item['pricing_schema']['id']);
                     $subscriptionItem->setPricingSchemaType($item['pricing_schema']['schema_type']);
-                    $subscriptionItem->setPricingSchemaFormat($item['pricing_schema']['schema_format'] ?? 'N/A'); // Check for schema_format key
+                    $subscriptionItem->setPricingSchemaFormat($item['pricing_schema']['schema_format'] ?? 'N/A');
                     $subscriptionItem->save();
                 }
             }
@@ -483,15 +439,13 @@ class View extends Container
     }
 
     /**
-     * @return array|null
+     * @return array
      */
     private function getSubscriptionData()
     {
         if ($this->subscriptions === null) {
             $id = $this->registry->registry('vindi_payment_subscription_id');
-
             $subscriptionModel = $this->subscriptionFactory->create()->load($id);
-
             $responseData = $subscriptionModel->getData('response_data');
 
             if ($responseData) {
@@ -509,4 +463,3 @@ class View extends Container
         return $this->subscriptions;
     }
 }
-

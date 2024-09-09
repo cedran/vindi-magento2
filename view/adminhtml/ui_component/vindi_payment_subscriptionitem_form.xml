@@ -9,7 +9,7 @@
     </argument>
     <settings>
         <buttons>
-            <button class="Vindi\Payment\Block\Adminhtml\Subscription\Edit\BackButton" name="back"/>
+            <button class="Vindi\Payment\Block\Adminhtml\Subscription\Item\Edit\BackButton" name="back"/>
             <button class="Vindi\Payment\Block\Adminhtml\Subscription\Edit\SaveChangesButton" name="save_and_continue"/>
         </buttons>
         <layout>
@@ -27,7 +27,7 @@
             </item>
         </argument>
         <settings>
-            <submitUrl path="vindi_payment/subscriptionitem/save"/>
+            <submitUrl path="vindi_payment/subscription/savesubscriptionitem"/>
         </settings>
         <dataProvider class="Vindi\Payment\Model\VindiSubscriptionItem\DataProvider" name="vindi_subscription_item_data_source">
             <settings>
@@ -59,11 +59,11 @@
                 </item>
             </argument>
             <settings>
-                <dataType>text</dataType>
+                <dataType>price</dataType>
                 <label translate="true">Price</label>
                 <dataScope>price</dataScope>
                 <validation>
-                    <rule name="validate-number" xsi:type="boolean">true</rule>
+                    <rule name="validate-zero-or-greater" xsi:type="boolean">true</rule>
                 </validation>
             </settings>
         </field>

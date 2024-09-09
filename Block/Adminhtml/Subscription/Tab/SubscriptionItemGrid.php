@@ -1,11 +1,32 @@
 <?php
 namespace Vindi\Payment\Block\Adminhtml\Subscription\Tab;
 
+/**
+ * Class SubscriptionItemGrid
+ *
+ * @package Vindi\Payment\Block\Adminhtml\Subscription\Tab
+ */
 class SubscriptionItemGrid extends \Magento\Backend\Block\Widget\Grid\Extended
 {
+    /**
+     * @var \Magento\Framework\Registry
+     */
     protected $coreRegistry = null;
+
+    /**
+     * @var \Vindi\Payment\Model\ResourceModel\VindiSubscriptionItem\CollectionFactory
+     */
     protected $subscriptionItemFactory;
 
+    /**
+     * SubscriptionItemGrid constructor.
+     *
+     * @param \Magento\Backend\Block\Template\Context $context
+     * @param \Magento\Backend\Helper\Data $backendHelper
+     * @param \Vindi\Payment\Model\ResourceModel\VindiSubscriptionItem\CollectionFactory $subscriptionItemFactory
+     * @param \Magento\Framework\Registry $coreRegistry
+     * @param array $data
+     */
     public function __construct(
         \Magento\Backend\Block\Template\Context $context,
         \Magento\Backend\Helper\Data $backendHelper,
@@ -18,40 +39,63 @@ class SubscriptionItemGrid extends \Magento\Backend\Block\Widget\Grid\Extended
         parent::__construct($context, $backendHelper, $data);
     }
 
+    /**
+     * Prepare collection
+     *
+     * @return $this
+     */
     protected function _construct()
     {
         parent::_construct();
+
         $this->setId('vindi_grid_subscription_items');
         $this->setDefaultSort('entity_id');
-    $this->setDefaultDir('ASC');
+        $this->setDefaultDir('ASC');
         $this->setUseAjax(true);
+        $this->setSaveParametersInSession(true);
+
         if ($this->getRequest()->getParam('entity_id')) {
             $this->setDefaultFilter(['in_subscription_items' => 1]);
         } else {
             $this->setDefaultFilter(['in_subscription_items' => 0]);
         }
-        $this->setSaveParametersInSession(true);
     }
 
+    /**
+     * Prepare collection
+     *
+     * @return $this
+     */
     protected function _prepareCollection()
     {
+        $subscriptionId = $this->getRequest()->getParam('id');
+
         $collection = $this->subscriptionItemFactory->create()
-            ->addFieldToSelect(['entity_id', 'product_name', 'status']);
+            ->addFieldToSelect(['entity_id', 'product_item_id', 'product_name', 'price'])
+            ->addFieldToFilter('subscription_id', $subscriptionId);
+
         $this->setCollection($collection);
         return parent::_prepareCollection();
     }
 
+    /**
+     * Prepare columns
+     *
+     * @return $this
+     */
     protected function _prepareColumns()
     {
         $this->addColumn(
-            'entity_id',
-    [
-        'header' => __('ID'),
-        'width' => '50px',
-        'index' => 'entity_id',
-        'type' => 'number',
-    ]
+            'product_item_id',
+            [
+                'header' => __('Product Item ID'),
+                'index' => 'product_item_id',
+                'header_css_class' => 'col-type',
+                'column_css_class' => 'col-type',
+                'type' => 'number',
+            ]
         );
+
         $this->addColumn(
             'product_name',
             [
@@ -61,13 +105,19 @@ class SubscriptionItemGrid extends \Magento\Backend\Block\Widget\Grid\Extended
                 'column_css_class' => 'col-type',
             ]
         );
+
         $this->addColumn(
-            'status',
+            'price',
             [
-                'header' => __('Status'),
-                'index' => 'status',
-                'header_css_class' => 'col-status',
-                'column_css_class' => 'col-status',
+                'header' => __('Price'),
+                'index' => 'price',
+                'type' => 'currency',
+                'currency_code' => (string) $this->_scopeConfig->getValue(
+                    \Magento\Directory\Model\Currency::XML_PATH_CURRENCY_BASE,
+                    \Magento\Store\Model\ScopeInterface::SCOPE_STORE
+                ),
+                'header_css_class' => 'col-price',
+                'column_css_class' => 'col-price',
             ]
         );
 
@@ -78,14 +128,14 @@ class SubscriptionItemGrid extends \Magento\Backend\Block\Widget\Grid\Extended
                 'width' => '100px',
                 'type' => 'action',
                 'getter' => 'getEntityId',
-    'actions' => [
-        [
-            'caption' => __('Edit'),
-            'url' => [
-                'base' => 'vindi_payment/subscription/edititem',
-                'params' => ['form_key' => $this->getFormKey()]
-            ],
-            'field' => 'entity_id',
+                'actions' => [
+                    [
+                        'caption' => __('Edit'),
+                        'url' => [
+                            'base' => 'vindi_payment/subscription/editsubscriptionitem',
+                            'params' => ['form_key' => $this->getFormKey()]
+                        ],
+                        'field' => 'entity_id',
                     ],
                 ],
                 'filter' => false,
@@ -99,29 +149,37 @@ class SubscriptionItemGrid extends \Magento\Backend\Block\Widget\Grid\Extended
         return parent::_prepareColumns();
     }
 
+    /**
+     * Prepare mass action
+     * @return $this
+     */
     public function getGridUrl()
     {
         return $this->getUrl('*/subscription/grids', ['_current' => true]);
     }
 
+    /**
+     * @return array
+     */
     protected function _getSelectedSubscriptionItems()
     {
         $subscriptionItems = array_keys($this->getSelectedSubscriptionItems());
         return $subscriptionItems;
     }
 
+    /**
+     * @return array
+     */
     public function getSelectedSubscriptionItems()
     {
         $id = $this->getRequest()->getParam('entity_id');
         $model = $this->subscriptionItemFactory->create()->addFieldToFilter('subscription_id', $id);
-        $grids = [];
-        foreach ($model as $key => $value) {
-            $grids[] = $value->getEntityId();
-        }
+
         $subscriptionItemIds = [];
-        foreach ($grids as $obj) {
-            $subscriptionItemIds[$obj] = ['position' => "0"];
+        foreach ($model as $value) {
+            $subscriptionItemIds[$value->getEntityId()] = ['position' => "0"];
         }
+
         return $subscriptionItemIds;
     }
 }

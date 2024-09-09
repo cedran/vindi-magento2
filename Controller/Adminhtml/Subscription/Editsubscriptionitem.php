@@ -9,7 +9,7 @@ use Vindi\Payment\Model\VindiSubscriptionItemFactory;
 /**
  * SubscriptionItem Edit Controller
  */
-class Edititem extends Action
+class Editsubscriptionitem extends Action
 {
     protected $resultPageFactory;
     protected $registry;
@@ -49,7 +49,7 @@ class Edititem extends Action
 
         /** @var \Magento\Framework\View\Result\Page $resultPage */
         $resultPage = $this->resultPageFactory->create();
-        $resultPage->getConfig()->getTitle()->prepend(__('Edit Subscription Item'));
+        $resultPage->getConfig()->getTitle()->prepend(__('Subscription #%1 > Item #%2', $model->getSubscriptionId(), $model->getProductItemId()));
 
         return $resultPage;
     }

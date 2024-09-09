@@ -53,7 +53,6 @@ class Save extends Action
     {
         /** @var Redirect $resultRedirect */
         $resultRedirect = $this->resultRedirectFactory->create();
-
         $data = $this->getRequest()->getPostValue();
 
         if ($data) {
@@ -63,9 +62,9 @@ class Save extends Action
                 return $resultRedirect->setPath('*/*/');
             }
 
-            if (!isset($data['payment_settings']['payment_profile']) || empty($data['payment_settings']['payment_profile'])) {
-                $this->messageManager->addErrorMessage(__('Invalid payment profile data.'));
-                return $resultRedirect->setPath('*/*/');
+            if (empty($data['payment_settings']['payment_profile'])) {
+                $this->messageManager->addWarningMessage(__('Only credit card subscriptions can have a card registered! If you want to change the item, click edit in the grid listing.'));
+                return $resultRedirect->setPath('*/*/edit', ['id' => $id]);
             }
 
             try {
@@ -81,13 +80,13 @@ class Save extends Action
 
             if (!is_array($request)) {
                 $this->messageManager->addErrorMessage(__('This Subscription no longer exists or API request failed.'));
-                return $resultRedirect->setPath('*/*/');
+                return $resultRedirect->setPath('*/*/edit', ['id' => $id]);
             }
 
             $model = $this->_objectManager->create(Subscription::class)->load($id);
             if (!$model->getId()) {
                 $this->messageManager->addErrorMessage(__('Subscription with ID %1 does not exist.', $id));
-                return $resultRedirect->setPath('*/*/');
+                return $resultRedirect->setPath('*/*/edit', ['id' => $id]);
             }
 
             $model->setData('payment_profile', $data["payment_settings"]["payment_profile"]);
@@ -97,11 +96,9 @@ class Save extends Action
                 $this->messageManager->addSuccessMessage(__('You saved the Subscription.'));
                 $this->dataPersistor->clear('vindi_payment_subscription');
 
-                if ($this->getRequest()->getParam('back')) {
-                    return $resultRedirect->setPath('*/*/edit', ['id' => $model->getId()]);
-                }
-
-                return $resultRedirect->setPath('*/*/');
+                return $this->getRequest()->getParam('back')
+                    ? $resultRedirect->setPath('*/*/edit', ['id' => $id])
+                    : $resultRedirect->setPath('*/*/');
             } catch (LocalizedException $e) {
                 $this->messageManager->addErrorMessage($e->getMessage());
             } catch (Exception $e) {
@@ -109,7 +106,7 @@ class Save extends Action
             }
 
             $this->dataPersistor->set('vindi_payment_subscription', $data);
-            return $resultRedirect->setPath('*/*/edit', ['id' => $this->getRequest()->getParam('id')]);
+            return $resultRedirect->setPath('*/*/edit', ['id' => $id]);
         }
 
         return $resultRedirect->setPath('*/*/');
