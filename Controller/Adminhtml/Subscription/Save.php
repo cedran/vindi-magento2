@@ -93,7 +93,7 @@ class Save extends Action
 
             try {
                 $model->save();
-                $this->messageManager->addSuccessMessage(__('You saved the Subscription.'));
+                $this->messageManager->addSuccessMessage(__('You saved the subscription.'));
                 $this->dataPersistor->clear('vindi_payment_subscription');
 
                 return $this->getRequest()->getParam('back')
