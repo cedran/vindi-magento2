@@ -64,6 +64,7 @@
                 <dataScope>price</dataScope>
                 <validation>
                     <rule name="validate-zero-or-greater" xsi:type="boolean">true</rule>
+                    <rule name="required-entry" xsi:type="boolean">true</rule>
                 </validation>
             </settings>
         </field>

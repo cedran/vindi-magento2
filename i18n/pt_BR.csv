@@ -521,3 +521,4 @@
 "Something went wrong while saving the Subscription.","Algo deu errado ao salvar a assinatura."
 "API request failed: %1","Solicitação da API falhou: %1"
 "Invalid Subscription ID.","ID de Assinatura Inválido."
+"Failed to update product item. Check the data and try again.","Falha ao atualizar o item do produto. Verifique os dados e tente novamente."
